@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="application-name" content="Sleep Planner">
+<meta name="description" content="Bedtime and wake-time suggestions based on 90-minute sleep cycles.">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Sleep Planner</title>
+<style>
+:root{--accent:#7C3AED;--bg:#0D0A16;--card:#171226;--text:#F3EEFF;--dim:#C4B5E8}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100dvh;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{width:min(480px,100vw - 24px);height:100dvh;max-height:780px;display:flex;flex-direction:column;padding:16px 14px 12px;gap:12px}
+h1{font-size:20px;color:var(--accent);text-align:center;letter-spacing:.5px}
+.tabs{display:flex;gap:10px}
+.tabs button{flex:1;min-height:52px;font-size:16px;font-weight:700;border-radius:12px;border:1px solid #3B2D63;background:#141021;color:var(--dim)}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{flex:1;min-height:0;display:none;flex-direction:column;gap:12px;background:var(--card);border:1px solid #2E2350;border-radius:16px;padding:16px}
+.panel.on{display:flex}
+.panel label{font-size:15px;color:var(--dim)}
+.panel input[type=time]{min-height:56px;font-size:24px;border-radius:12px;border:1px solid #3B2D63;background:#0D0A16;color:var(--text);padding:0 14px;font-family:inherit}
+.panel input[type=time]{-webkit-user-select:text;user-select:text}
+.results{display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.result{display:flex;justify-content:space-between;align-items:center;background:#0D0A16;border:1px solid #2E2350;border-radius:12px;padding:12px 14px;min-height:56px}
+.result .t{font-size:22px;font-weight:800;color:var(--accent)}
+.result .c{font-size:14px;color:var(--dim)}
+.hint{font-size:13px;color:var(--dim);line-height:1.4}
+button.big{min-height:56px;font-size:18px;font-weight:700;border-radius:14px;border:none;background:var(--accent);color:#fff}
+button[data-focusable]:focus-visible,input[data-focusable]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Sleep Planner</h1>
+  <div class="tabs" role="tablist" aria-label="Planner mode">
+    <button id="tabWake" data-focusable role="tab" class="on">Wake at…</button>
+    <button id="tabSleep" data-focusable role="tab">Sleep now</button>
+  </div>
+  <div class="panel on" id="panelWake" role="tabpanel">
+    <label for="waketime">I want to wake up at</label>
+    <input type="time" id="waketime" data-focusable value="07:00">
+    <div class="results" id="bedtimes"></div>
+    <p class="hint">Go to bed at one of these times for full 90-minute sleep cycles.</p>
+  </div>
+  <div class="panel" id="panelSleep" role="tabpanel">
+    <p class="hint">Wake-up times if you fall asleep now (includes ~15 min to drift off).</p>
+    <button class="big" id="calcNow" data-focusable>↻ Show wake times</button>
+    <div class="results" id="waketimes"></div>
+  </div>
+</div>
+<script>
+(function(){"use strict";
+var tabWake=document.getElementById('tabWake');
+var tabSleep=document.getElementById('tabSleep');
+var panelWake=document.getElementById('panelWake');
+var panelSleep=document.getElementById('panelSleep');
+var wakeInput=document.getElementById('waketime');
+var bedtimesEl=document.getElementById('bedtimes');
+var waketimesEl=document.getElementById('waketimes');
+var calcNowBtn=document.getElementById('calcNow');
+
+function fmt(totalMin){
+  totalMin=((totalMin%1440)+1440)%1440;
+  var h=Math.floor(totalMin/60),m=totalMin%60;
+  var ap=h<12?"AM":"PM";
+  var h12=h%12;if(h12===0)h12=12;
+  return h12+":"+(m<10?"0":"")+m+" "+ap;
+}
+function cycleLabel(n,mins){return n+" cycles · "+(mins/60)+"h";}
+function renderResults(el,rows){
+  el.innerHTML="";
+  rows.forEach(function(r){
+    var d=document.createElement("div");
+    d.className="result";
+    var t=document.createElement("span");t.className="t";t.textContent=r.time;
+    var c=document.createElement("span");c.className="c";c.textContent=r.label;
+    d.appendChild(t);d.appendChild(c);el.appendChild(d);
+  });
+}
+function computeBedtimes(){
+  var parts=(wakeInput.value||"07:00").split(":");
+  var wakeMin=(parseInt(parts[0],10)||0)*60+(parseInt(parts[1],10)||0);
+  var defs=[[6,540],[5,450],[4,360],[3,270]];
+  renderResults(bedtimesEl,defs.map(function(d){
+    return {time:fmt(wakeMin-d[1]),label:cycleLabel(d[0],d[1])};
+  }));
+}
+function computeWakeNow(){
+  var now=new Date();
+  var base=now.getHours()*60+now.getMinutes()+15;
+  var defs=[[3,270],[4,360],[5,450],[6,540]];
+  renderResults(waketimesEl,defs.map(function(d){
+    return {time:fmt(base+d[1]),label:cycleLabel(d[0],d[1])};
+  }));
+}
+function switchTab(wake){
+  tabWake.classList.toggle("on",wake);
+  tabSleep.classList.toggle("on",!wake);
+  panelWake.classList.toggle("on",wake);
+  panelSleep.classList.toggle("on",!wake);
+  tabWake.setAttribute("aria-selected",wake?"true":"false");
+  tabSleep.setAttribute("aria-selected",!wake?"true":"false");
+  if(wake)computeBedtimes();else computeWakeNow();
+}
+tabWake.addEventListener("click",function(){switchTab(true);});
+tabSleep.addEventListener("click",function(){switchTab(false);});
+wakeInput.addEventListener("change",computeBedtimes);
+wakeInput.addEventListener("input",computeBedtimes);
+calcNowBtn.addEventListener("click",computeWakeNow);
+
+function focusables(){
+  return Array.prototype.slice.call(document.querySelectorAll("[data-focusable]"))
+    .filter(function(el){return !el.disabled && el.offsetParent!==null;});
+}
+document.addEventListener("keydown",function(e){
+  var list=focusables();
+  if(!list.length)return;
+  var i=list.indexOf(document.activeElement);
+  if(e.key==="ArrowRight"||e.key==="ArrowDown"){
+    e.preventDefault();
+    list[(i+1+list.length)%list.length].focus();
+  }else if(e.key==="ArrowLeft"||e.key==="ArrowUp"){
+    e.preventDefault();
+    list[(i-1+list.length)%list.length].focus();
+  }
+});
+computeBedtimes();
+})();
+</script>
+</body>
+</html>

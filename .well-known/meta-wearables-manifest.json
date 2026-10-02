@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "name": "Sleep Planner",
+  "description": "Bedtime and wake-time suggestions based on 90-minute sleep cycles.",
+  "appearance": {
+    "theme_color": "#7C3AED",
+    "icon": {
+      "src": "../icon-mono.png",
+      "type": "monochrome"
+    },
+    "icon_background": {
+      "colors": [
+        "#7C3AED",
+        "#3B2D63",
+        "#2E2350",
+        "#0D0A16"
+      ],
+      "stops": [
+        0.0,
+        0.33,
+        0.66,
+        1.0
+      ],
+      "inner_glow_color": "#D9CCFF"
+    }
+  }
+}
